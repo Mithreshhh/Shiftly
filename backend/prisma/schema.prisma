@@ -1,0 +1,141 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Organization {
+  id        String   @id @default(uuid())
+  name      String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users       User[]
+  employees   Employee[]
+  departments Department[]
+  shifts      Shift[]
+  templates   ShiftTemplate[]
+}
+
+model User {
+  id             String   @id @default(uuid())
+  email          String   @unique
+  password       String
+  name           String
+  role           Role     @default(EMPLOYEE)
+  organizationId String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([organizationId])
+}
+
+model Employee {
+  id               String   @id @default(uuid())
+  name             String
+  email            String
+  phone            String?
+  position         String
+  color            String   @default("#3B82F6")
+  weeklyHoursLimit Int?
+  organizationId   String
+  departmentId     String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  organization  Organization          @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  department    Department?           @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  shifts        Shift[]
+  availability  EmployeeAvailability[]
+
+  @@index([organizationId])
+  @@index([departmentId])
+}
+
+model EmployeeAvailability {
+  id         String @id @default(uuid())
+  employeeId String
+  dayOfWeek  Int // 0-6 (Sunday-Saturday)
+  startTime  String // HH:mm format
+  endTime    String // HH:mm format
+
+  employee Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+
+  @@index([employeeId])
+}
+
+model Department {
+  id             String   @id @default(uuid())
+  name           String
+  color          String   @default("#6B7280")
+  organizationId String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization    @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  employees    Employee[]
+  shifts       Shift[]
+  templates    ShiftTemplate[]
+
+  @@index([organizationId])
+}
+
+model Shift {
+  id             String      @id @default(uuid())
+  employeeId     String
+  startTime      DateTime
+  endTime        DateTime
+  position       String
+  notes          String?
+  status         ShiftStatus @default(SCHEDULED)
+  organizationId String
+  departmentId   String?
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+
+  employee     Employee     @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  department   Department?  @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId])
+  @@index([employeeId])
+  @@index([startTime])
+}
+
+model ShiftTemplate {
+  id                String  @id @default(uuid())
+  name              String
+  dayOfWeek         Int // 0-6 (Sunday-Saturday)
+  startTime         String // HH:mm format
+  endTime           String // HH:mm format
+  position          String
+  requiredEmployees Int     @default(1)
+  organizationId    String
+  departmentId      String?
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  department   Department?  @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId])
+}
+
+enum Role {
+  ADMIN
+  MANAGER
+  EMPLOYEE
+}
+
+enum ShiftStatus {
+  SCHEDULED
+  CONFIRMED
+  COMPLETED
+  CANCELLED
+}
